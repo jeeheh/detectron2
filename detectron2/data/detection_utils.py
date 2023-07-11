@@ -11,6 +11,7 @@ from typing import List, Union
 import pycocotools.mask as mask_util
 import torch
 from PIL import Image
+import s3fs
 
 from detectron2.structures import (
     BitMasks,
@@ -177,12 +178,17 @@ def read_image(file_name, format=None):
             an HWC image in the given format, which is 0-255, uint8 for
             supported image modes in PIL or "BGR"; float (0-1 for Y) for YUV-BT.601.
     """
-    with PathManager.open(file_name, "rb") as f:
-        image = Image.open(f)
+    if file_name.startswith("s3://"):
+        fs = s3fs.S3FileSystem()
+        with fs.open(file_name) as f:
+            image = Image.open(f).convert('RGB')
+    else:
+        with PathManager.open(file_name, "rb") as f:
+            image = Image.open(f)
 
-        # work around this bug: https://github.com/python-pillow/Pillow/issues/3973
-        image = _apply_exif_orientation(image)
-        return convert_PIL_to_numpy(image, format)
+    # work around this bug: https://github.com/python-pillow/Pillow/issues/3973
+    image = _apply_exif_orientation(image)
+    return convert_PIL_to_numpy(image, format)
 
 
 def check_image_size(dataset_dict, image):
